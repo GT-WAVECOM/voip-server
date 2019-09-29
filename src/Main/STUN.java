@@ -154,7 +154,7 @@ public class STUN implements Runnable {
                             DebugMessage.log(TAG, "Hurray! symmetric chat link established.");
                             DebugMessage.log(TAG, "======== transfer to turn server =======\n");
 
-                            TURN turn = new TURN(turnSocket, new PoolInformation(incomingAddress, deviceType), peerInfo, pool, poolQueue);
+                            TURN turn = new TURN(turnSocket, new PoolInformation(incomingAddress, deviceType), new PoolInformation(peerInfo.getEndPoint(), peerInfo.getDeviceType()), pool, poolQueue);
                             Thread turnThread = new Thread(turn);
                             turnThread.setDaemon(true);
                             turnThread.start();
