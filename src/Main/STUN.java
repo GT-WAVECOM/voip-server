@@ -113,7 +113,7 @@ public class STUN implements Runnable {
                         if (deviceType == DeviceType.ESP32 && !peerInfo.isCallGoingOn()) {
                             PoolInformation info = new PoolInformation(incomingAddress, deviceType);
                             poolQueue.put(pool, info);
-                            
+
                             resp = new byte[] {'1'};
                             DatagramPacket respPacket = new DatagramPacket(resp, resp.length, incomingAddress.getIpAddress(), incomingAddress.getPort());
                             stunSocket.send(respPacket);
@@ -172,6 +172,7 @@ public class STUN implements Runnable {
                             DatagramPacket currPacket = new DatagramPacket(turnBuf, turnBuf.length,
                                     incomingAddress.getIpAddress(), incomingAddress.getPort());
                             stunSocket.send(currPacket);
+                            DebugMessage.log(TAG, "resend: " + currInfo.getEndPoint());
                         }
                     }
                 }
