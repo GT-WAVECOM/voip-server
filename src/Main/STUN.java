@@ -154,12 +154,13 @@ public class STUN implements Runnable {
                             DebugMessage.log(TAG, "Hurray! symmetric chat link established.");
                             DebugMessage.log(TAG, "======== transfer to turn server =======\n");
 
-                            peerInfo.setEndPoint(new IPEndPoint(turnAddress, turnPort));
-                            peerInfo.setCallGoingOn(true);
                             TURN turn = new TURN(turnSocket, new PoolInformation(incomingAddress, deviceType), peerInfo, pool, poolQueue);
                             Thread turnThread = new Thread(turn);
                             turnThread.setDaemon(true);
                             turnThread.start();
+
+                            peerInfo.setEndPoint(new IPEndPoint(turnAddress, turnPort));
+                            peerInfo.setCallGoingOn(true);
 
                         } else { // voice communication has been initiated, handle the device retry request
                             DebugMessage.log(TAG, "Retry request for the TURN server from " + data[1]);
