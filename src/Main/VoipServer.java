@@ -28,7 +28,7 @@ public class VoipServer {
     }
 
     public static void main(String[] args) {
-        VoipServer server = new VoipServer("54.165.124.138", 10);
+        VoipServer server = new VoipServer("54.83.79.129", 10);
         server.serverInit();
     }
 }
