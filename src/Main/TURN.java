@@ -118,9 +118,9 @@ public class TURN  implements Runnable {
                             isTurnForwarding = false;
                         }
                     } else {
-                        outgoingPacket = new DatagramPacket(bufferList[bufferListIndex], incomingPacket.getLength(),
-                                outgoingEndPoint.getIpAddress(), outgoingEndPoint.getPort());
-                        turnSocket.send(outgoingPacket);
+//                        outgoingPacket = new DatagramPacket(bufferList[bufferListIndex], incomingPacket.getLength(),
+//                                outgoingEndPoint.getIpAddress(), outgoingEndPoint.getPort());
+//                        turnSocket.send(outgoingPacket);
                     }
                 }
 
