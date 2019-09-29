@@ -71,6 +71,7 @@ public class TURN  implements Runnable {
 
                 if (incomingPacket.getLength() < 10) {
                     msg = new String(incomingPacket.getData(), 0, incomingPacket.getLength());
+                    DebugMessage.log(TAG, incomingEndPoint.toString() + " " + msg);
                 }
 
                 if (msg != null && msg.startsWith("LC Stop")) {
