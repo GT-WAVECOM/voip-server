@@ -59,7 +59,7 @@ public class TURN  implements Runnable {
             boolean isTurnForwarding = true;
             int errorMsgCount = 0;
             DebugMessage.log(TAG, String.format("Device: %s, Phone: %s", deviceString, phoneString));
-            int msgCounter = 0;
+
             while (isTurnForwarding) {
                 incomingPacket = new DatagramPacket(bufferList[bufferListIndex], bufferList[bufferListIndex].length);
                 turnSocket.receive(incomingPacket);
@@ -71,8 +71,6 @@ public class TURN  implements Runnable {
 
                 if (incomingPacket.getLength() < 10) {
                     msg = new String(incomingPacket.getData(), 0, incomingPacket.getLength());
-                    DebugMessage.log(TAG, msgCounter + " " +incomingEndPoint.toString() + " " + msg);
-                    msgCounter = (msgCounter + 1) % 100;
                 }
 
                 if (msg != null && msg.startsWith("LC Stop")) {
