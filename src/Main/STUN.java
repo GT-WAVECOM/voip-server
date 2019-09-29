@@ -36,7 +36,7 @@ public class STUN implements Runnable {
             bytes.add(b);
         }
         // serialize port & nat type
-        ByteBuffer byteBuffer = ByteBuffer.allocate(4);
+        ByteBuffer byteBuffer = ByteBuffer.allocate(2);
         byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
         short port = (short) endPoint.getPort();
         byteBuffer.putShort(port);
