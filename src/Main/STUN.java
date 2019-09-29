@@ -95,7 +95,7 @@ public class STUN implements Runnable {
                     if (!poolQueue.containsKey(pool)) {
 
                         if (deviceType == DeviceType.MobilePhone) {
-                            resp = "offline".getBytes();
+                            resp = "offline!".getBytes();
                             DatagramPacket respPacket = new DatagramPacket(resp, resp.length, incomingAddress.getIpAddress(), incomingAddress.getPort());
                             stunSocket.send(respPacket);
                             continue;
