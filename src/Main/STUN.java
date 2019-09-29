@@ -108,16 +108,14 @@ public class STUN implements Runnable {
                         DatagramPacket respPacket = new DatagramPacket(resp, resp.length, incomingAddress.getIpAddress(), incomingAddress.getPort());
                         stunSocket.send(respPacket);
                     } else {
-
+                        PoolInformation peerInfo = poolQueue.get(pool);
                         // if the request exits, waiting for phone to join
-                        if (deviceType == DeviceType.ESP32) {
+                        if (deviceType == DeviceType.ESP32 && !peerInfo.isCallGoingOn()) {
                             resp = new byte[] {'1'};
                             DatagramPacket respPacket = new DatagramPacket(resp, resp.length, incomingAddress.getIpAddress(), incomingAddress.getPort());
                             stunSocket.send(respPacket);
                             continue;
                         }
-
-                        PoolInformation peerInfo = poolQueue.get(pool);
 
                         if (!peerInfo.isCallGoingOn()) {
                             // initiate the turn socket and share with device and phone
