@@ -51,7 +51,7 @@ public class TURN  implements Runnable {
         byte[][] bufferList = new byte[100][1024];
         int bufferListIndex = 0;
         try {
-//            turnSocket.setSoTimeout(2500);
+            turnSocket.setSoTimeout(2500);
             InetAddress incomingAddress;
             int incomingPort;
             IPEndPoint incomingEndPoint;
