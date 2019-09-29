@@ -111,6 +111,9 @@ public class STUN implements Runnable {
                         PoolInformation peerInfo = poolQueue.get(pool);
                         // if the request exits, waiting for phone to join
                         if (deviceType == DeviceType.ESP32 && !peerInfo.isCallGoingOn()) {
+                            PoolInformation info = new PoolInformation(incomingAddress, deviceType);
+                            poolQueue.put(pool, info);
+                            
                             resp = new byte[] {'1'};
                             DatagramPacket respPacket = new DatagramPacket(resp, resp.length, incomingAddress.getIpAddress(), incomingAddress.getPort());
                             stunSocket.send(respPacket);
