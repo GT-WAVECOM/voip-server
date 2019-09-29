@@ -29,7 +29,7 @@ public class STUN implements Runnable {
         this.poolQueue = poolQueue;
     }
 
-    public static byte[] addr2bytes(IPEndPoint endPoint, NATType natType) {
+    public static byte[] addr2bytes(IPEndPoint endPoint) {
         ArrayList<Byte> bytes = new ArrayList<>();
         // serialize ip address
         for (byte b : endPoint.getIpAddress().getAddress()) {
@@ -40,9 +40,6 @@ public class STUN implements Runnable {
         byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
         short port = (short) endPoint.getPort();
         byteBuffer.putShort(port);
-
-        short nat = (short) natType.ordinal();
-        byteBuffer.putShort(nat);
 
         for (byte b : byteBuffer.array()) {
             bytes.add(b);
@@ -66,7 +63,7 @@ public class STUN implements Runnable {
             stunPoolStatus[stunPoolIndex] = true;
 
             //start listening to the port
-            byte[] buffer = new byte[1024];
+            byte[] buffer = new byte[128];
             while (true) {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 stunSocket.receive(packet);
@@ -85,110 +82,94 @@ public class STUN implements Runnable {
                     DebugMessage.log(TAG, String.format("Connection from %s:%d", incomingAddress.getIpAddress().toString(), incomingAddress.getPort()));
 
                     String[] data = msg.trim().split(" ", 0);
-                    if (data.length != 3) {
+                    if (data.length != 2) {
                         DebugMessage.log(TAG, "Malformed request, discarded...");
                         continue;
                     }
 
                     String pool = data[0];
-                    NATType natType = NATType.getNatType(data[1]);
-                    DeviceType deviceType = DeviceType.getDeviceType(data[2]);
-                    DebugMessage.log(TAG, String.format("Stun server %d received request from %s for pool \"%s\"", this.stunPoolIndex, data[2], pool));
+                    DeviceType deviceType = DeviceType.getDeviceType(data[1]);
+                    DebugMessage.log(TAG, String.format("Stun server %d received request from %s for pool \"%s\"", this.stunPoolIndex, data[1], pool));
 
+                    byte[] resp;
                     if (!poolQueue.containsKey(pool)) {
-                        byte[] resp;
-                        if (deviceType == DeviceType.ESP32) {
-                            resp = "canceled".getBytes();
+
+                        if (deviceType == DeviceType.MobilePhone) {
+                            resp = "offline".getBytes();
                             DatagramPacket respPacket = new DatagramPacket(resp, resp.length, incomingAddress.getIpAddress(), incomingAddress.getPort());
                             stunSocket.send(respPacket);
                             continue;
                         }
 
-                        PoolInformation info = new PoolInformation(incomingAddress, deviceType, natType, pool, poolQueue);
+                        PoolInformation info = new PoolInformation(incomingAddress, deviceType);
                         poolQueue.put(pool, info);
 
-                        resp = "goodtogo".getBytes();
+                        resp = new byte[] {'1'};
                         DatagramPacket respPacket = new DatagramPacket(resp, resp.length, incomingAddress.getIpAddress(), incomingAddress.getPort());
                         stunSocket.send(respPacket);
                     } else {
-                        PoolInformation peerInfo = poolQueue.get(pool);
-                        // if the request exits, decline another request from phone
-                        if (deviceType == DeviceType.MobilePhone) {
-                            DebugMessage.log(TAG, "Device occupied");
-                            byte[] resp = "occupied".getBytes();
+
+                        // if the request exits, waiting for phone to join
+                        if (deviceType == DeviceType.ESP32) {
+                            resp = new byte[] {'1'};
                             DatagramPacket respPacket = new DatagramPacket(resp, resp.length, incomingAddress.getIpAddress(), incomingAddress.getPort());
                             stunSocket.send(respPacket);
                             continue;
                         }
 
-                        // at least on side on not fullcone
-                        if (natType != NATType.FullCone || peerInfo.getNatType() != NATType.FullCone) {
-                            if (!peerInfo.isESP32Joined()) {
-                                // initiate the turn socket and share with device and phone
-                                Random rand = new Random();
-                                DatagramSocket turnSocket = null;
-                                boolean isTurnPortValid = false;
-                                int turnPort = listeningPort + 1;
+                        PoolInformation peerInfo = poolQueue.get(pool);
 
-                                while (!isTurnPortValid) {
-                                    try {
-                                        turnPort = listeningPort + rand.nextInt(1000) + 1;
-                                        DebugMessage.log(TAG, "Turn server is trying to bind to port: " + turnPort);
-                                        turnSocket = new DatagramSocket(turnPort);
-                                        isTurnPortValid = true;
-                                        turnSocket.setReuseAddress(true);
-                                    } catch (SocketException e) {
-                                        DebugMessage.log(TAG, "Turn port " + turnPort + " is not available, retrying...");
-                                    }
+                        if (!peerInfo.isCallGoingOn()) {
+                            // initiate the turn socket and share with device and phone
+                            Random rand = new Random();
+                            DatagramSocket turnSocket = null;
+                            boolean isTurnPortValid = false;
+                            int turnPort = listeningPort + 1;
+
+                            while (!isTurnPortValid) {
+                                try {
+                                    turnPort = listeningPort + rand.nextInt(1000) + 1;
+                                    DebugMessage.log(TAG, "Turn server is trying to bind to port: " + turnPort);
+                                    turnSocket = new DatagramSocket(turnPort);
+                                    isTurnPortValid = true;
+                                    turnSocket.setReuseAddress(true);
+                                } catch (SocketException e) {
+                                    DebugMessage.log(TAG, "Turn port " + turnPort + " is not available, retrying...");
                                 }
-
-                                DebugMessage.log(TAG, "Turn server is listening on port: " + turnSocket.getLocalPort());
-
-                                InetAddress turnAddress = InetAddress.getByName(selfIP);
-                                byte[] turnBuf = addr2bytes(new IPEndPoint(turnAddress, turnPort), NATType.FullCone);
-
-                                DatagramPacket peerPacket = new DatagramPacket(turnBuf, turnBuf.length,
-                                        incomingAddress.getIpAddress(), incomingAddress.getPort());
-
-                                DatagramPacket currPacket = new DatagramPacket(turnBuf, turnBuf.length,
-                                        peerInfo.getEndPoint().getIpAddress(), peerInfo.getEndPoint().getPort());
-
-                                stunSocket.send(peerPacket);
-                                stunSocket.send(currPacket);
-
-                                // initiate the turn thread
-                                DebugMessage.log(TAG, "Hurray! symmetric chat link established.");
-                                DebugMessage.log(TAG, "======== transfer to turn server =======\n");
-
-                                peerInfo.setEndPoint(new IPEndPoint(turnAddress, turnPort));
-                                peerInfo.setNatType(NATType.FullCone);
-                                peerInfo.setESP32Joined(true);
-                                TURN turn = new TURN(turnSocket, new PoolInformation(incomingAddress, deviceType, natType), peerInfo, pool, poolQueue);
-                                Thread turnThread = new Thread(turn);
-                                turnThread.setDaemon(true);
-                                turnThread.start();
-
-                            } else { // voice communication has been initiated, handle the device retry request
-                                DebugMessage.log(TAG, "Retry request for the TURN server from " + data[2]);
-                                PoolInformation currInfo = poolQueue.get(pool);
-                                byte[] turnBuf = addr2bytes(currInfo.getEndPoint(), NATType.FullCone);
-                                DatagramPacket currPacket = new DatagramPacket(turnBuf, turnBuf.length,
-                                        incomingAddress.getIpAddress(), incomingAddress.getPort());
-                                stunSocket.send(currPacket);
                             }
-                        } else { // both are fullcone
-                            byte[] peerBuf = addr2bytes(peerInfo.getEndPoint(), peerInfo.getNatType());
-                            byte[] currBuf = addr2bytes(incomingAddress, natType);
-                            DatagramPacket peerPacket = new DatagramPacket(peerBuf, peerBuf.length,
+
+                            DebugMessage.log(TAG, "Turn server is listening on port: " + turnSocket.getLocalPort());
+
+                            InetAddress turnAddress = InetAddress.getByName(selfIP);
+                            byte[] turnBuf = addr2bytes(new IPEndPoint(turnAddress, turnPort));
+
+                            DatagramPacket peerPacket = new DatagramPacket(turnBuf, turnBuf.length,
                                     incomingAddress.getIpAddress(), incomingAddress.getPort());
-                            DatagramPacket currPacket = new DatagramPacket(currBuf, currBuf.length,
+
+                            DatagramPacket currPacket = new DatagramPacket(turnBuf, turnBuf.length,
                                     peerInfo.getEndPoint().getIpAddress(), peerInfo.getEndPoint().getPort());
 
                             stunSocket.send(peerPacket);
                             stunSocket.send(currPacket);
 
-                            DebugMessage.log(TAG, "Linked");
-                            poolQueue.remove(pool);
+                            // initiate the turn thread
+                            DebugMessage.log(TAG, "Hurray! symmetric chat link established.");
+                            DebugMessage.log(TAG, "======== transfer to turn server =======\n");
+
+                            peerInfo.setEndPoint(new IPEndPoint(turnAddress, turnPort));
+                            peerInfo.setCallGoingOn(true);
+                            TURN turn = new TURN(turnSocket, new PoolInformation(incomingAddress, deviceType), peerInfo, pool, poolQueue);
+                            Thread turnThread = new Thread(turn);
+                            turnThread.setDaemon(true);
+                            turnThread.start();
+
+                        } else { // voice communication has been initiated, handle the device retry request
+                            DebugMessage.log(TAG, "Retry request for the TURN server from " + data[1]);
+                            PoolInformation currInfo = poolQueue.get(pool);
+                            byte[] turnBuf = addr2bytes(currInfo.getEndPoint());
+                            DatagramPacket currPacket = new DatagramPacket(turnBuf, turnBuf.length,
+                                    incomingAddress.getIpAddress(), incomingAddress.getPort());
+                            stunSocket.send(currPacket);
                         }
                     }
                 }
